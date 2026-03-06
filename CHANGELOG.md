@@ -9,6 +9,20 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 - **Added**
+  - (placeholder)
+
+- **Changed**
+  - (placeholder)
+
+- **Fixed**
+  - (placeholder)
+
+- **Security**
+  - (placeholder)
+
+## [0.1.2] - 2026-03-06
+
+- **Added**
   - Version ordering guard to skip out-of-order hydration events.
   - Schema compatibility guard via `supportedSchemaVersions`.
   - Event telemetry for lag, processed outcomes, and failures.
@@ -35,3 +49,4 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 
 [0.1.1]: https://github.com/Plasius-LTD/graph-events/releases/tag/v0.1.1
+[0.1.2]: https://github.com/Plasius-LTD/graph-events/releases/tag/v0.1.2
