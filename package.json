@@ -1,6 +1,6 @@
 {
   "name": "@plasius/graph-events",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Event-driven cache invalidation and hydration pipeline for graph data",
   "type": "module",
   "sideEffects": false,
