@@ -82,6 +82,20 @@ npm run build
 
 ---
 
+## Processing Guarantees
+
+- Idempotency/replay: processed event store prevents duplicate handling.
+- Version ordering guard: older versions are skipped to prevent cache rollback.
+- Schema compatibility guard: `supportedSchemaVersions` controls accepted envelope versions.
+- Telemetry:
+  - `graph.events.lag_ms`
+  - `graph.events.processed`
+  - `graph.events.failure`
+
+Missed events rely on cache TTL fallback strategy (cross-package ADR 0021).
+
+---
+
 ## Architecture
 
 - Package ADRs: [`docs/adrs`](./docs/adrs)

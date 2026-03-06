@@ -9,16 +9,21 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 - **Added**
-  - (placeholder)
+  - Version ordering guard to skip out-of-order hydration events.
+  - Schema compatibility guard via `supportedSchemaVersions`.
+  - Event telemetry for lag, processed outcomes, and failures.
+  - Contract compatibility test suite for event envelope/schema handling.
+  - ADR-0003 documenting event ordering and telemetry baseline.
 
 - **Changed**
-  - (placeholder)
+  - `GraphEventProcessResult` now includes optional `reason` for skipped events.
+  - README now documents processing guarantees and TTL fallback linkage.
 
 - **Fixed**
-  - (placeholder)
+  - N/A
 
 - **Security**
-  - (placeholder)
+  - N/A
 
 ## [0.1.1] - 2026-03-05
 

@@ -1,4 +1,5 @@
-import type { CacheEnvelope, CacheStore, DomainEvent } from "@plasius/graph-contracts";
+import type { CacheEnvelope, CacheStore, DomainEvent, TelemetrySink, Version } from "@plasius/graph-contracts";
+import { DEFAULT_SCHEMA_VERSION } from "@plasius/graph-contracts";
 
 export interface ProcessedEventStore {
   has(eventId: string): Promise<boolean>;
@@ -35,48 +36,83 @@ export class InMemoryProcessedEventStore implements ProcessedEventStore {
 export interface GraphEventProcessorOptions {
   cacheStore: CacheStore;
   processedStore?: ProcessedEventStore;
+  telemetry?: TelemetrySink;
   now?: () => number;
   processedEventTtlSeconds?: number;
   cacheTtlSeconds?: number;
+  supportedSchemaVersions?: string[];
 }
 
 export interface GraphEventProcessResult {
   skipped: boolean;
   action: "invalidated" | "hydrated" | "none";
+  reason?: "already_processed" | "unsupported_schema" | "out_of_order";
 }
 
 export class GraphEventProcessor {
   private readonly cacheStore: CacheStore;
   private readonly processedStore: ProcessedEventStore;
+  private readonly telemetry?: TelemetrySink;
   private readonly now: () => number;
   private readonly processedEventTtlSeconds: number;
   private readonly cacheTtlSeconds: number;
+  private readonly supportedSchemaVersions: ReadonlySet<string>;
 
   public constructor(options: GraphEventProcessorOptions) {
     this.cacheStore = options.cacheStore;
     this.processedStore = options.processedStore ?? new InMemoryProcessedEventStore(options.now);
+    this.telemetry = options.telemetry;
     this.now = options.now ?? (() => Date.now());
     this.processedEventTtlSeconds = options.processedEventTtlSeconds ?? 24 * 60 * 60;
     this.cacheTtlSeconds = options.cacheTtlSeconds ?? 300;
+    this.supportedSchemaVersions = new Set(options.supportedSchemaVersions ?? [DEFAULT_SCHEMA_VERSION]);
   }
 
   public async process(event: DomainEvent): Promise<GraphEventProcessResult> {
+    this.telemetry?.metric({
+      name: "graph.events.lag_ms",
+      value: Math.max(0, this.now() - event.occurredAtEpochMs),
+      unit: "ms",
+      tags: {
+        type: event.type,
+      },
+    });
+
     if (await this.processedStore.has(event.id)) {
-      return { skipped: true, action: "none" };
+      const skippedResult: GraphEventProcessResult = { skipped: true, action: "none", reason: "already_processed" };
+      this.recordProcessedMetric(event, skippedResult);
+      return skippedResult;
+    }
+
+    if (!this.supportedSchemaVersions.has(event.schemaVersion)) {
+      const skippedResult: GraphEventProcessResult = { skipped: true, action: "none", reason: "unsupported_schema" };
+      this.recordProcessedMetric(event, skippedResult);
+      return skippedResult;
     }
 
     try {
       if (event.type.endsWith("deleted")) {
         const keys = this.keysForEvent(event);
         await this.cacheStore.invalidate(keys);
-        return { skipped: false, action: "invalidated" };
+        const result: GraphEventProcessResult = { skipped: false, action: "invalidated" };
+        this.recordProcessedMetric(event, result);
+        return result;
       }
 
       const targetKey = this.primaryKeyForEvent(event);
+      const existing = await this.cacheStore.get<Record<string, unknown>>(targetKey);
+      if (existing && this.isIncomingVersionOlder(existing.version, event.version)) {
+        const skippedResult: GraphEventProcessResult = { skipped: true, action: "none", reason: "out_of_order" };
+        this.recordProcessedMetric(event, skippedResult);
+        return skippedResult;
+      }
+
       const data = event.payload.data;
       if (!data || typeof data !== "object" || Array.isArray(data)) {
         await this.cacheStore.invalidate(this.keysForEvent(event));
-        return { skipped: false, action: "invalidated" };
+        const result: GraphEventProcessResult = { skipped: false, action: "invalidated" };
+        this.recordProcessedMetric(event, result);
+        return result;
       }
 
       const envelope: CacheEnvelope<Record<string, unknown>> = {
@@ -97,7 +133,28 @@ export class GraphEventProcessor {
         ttlSeconds: this.cacheTtlSeconds,
       });
 
-      return { skipped: false, action: "hydrated" };
+      const result: GraphEventProcessResult = { skipped: false, action: "hydrated" };
+      this.recordProcessedMetric(event, result);
+      return result;
+    } catch (error) {
+      this.telemetry?.metric({
+        name: "graph.events.failure",
+        value: 1,
+        unit: "count",
+        tags: {
+          type: event.type,
+        },
+      });
+      this.telemetry?.error({
+        message: error instanceof Error ? error.message : "event processing failure",
+        source: "graph-events",
+        code: "EVENT_PROCESSING_FAILED",
+        tags: {
+          eventType: event.type,
+          schemaVersion: event.schemaVersion,
+        },
+      });
+      throw error;
     } finally {
       await this.processedStore.mark(event.id, this.processedEventTtlSeconds);
     }
@@ -123,5 +180,27 @@ export class GraphEventProcessor {
 
   private primaryKeyForEvent(event: DomainEvent): string {
     return event.entityKey ?? event.aggregateKey;
+  }
+
+  private recordProcessedMetric(event: DomainEvent, result: GraphEventProcessResult): void {
+    this.telemetry?.metric({
+      name: "graph.events.processed",
+      value: 1,
+      unit: "count",
+      tags: {
+        type: event.type,
+        action: result.action,
+        skipped: result.skipped ? "true" : "false",
+        reason: result.reason ?? "none",
+      },
+    });
+  }
+
+  private isIncomingVersionOlder(existingVersion: Version, incomingVersion: Version): boolean {
+    if (typeof existingVersion === "number" && typeof incomingVersion === "number") {
+      return incomingVersion < existingVersion;
+    }
+
+    return String(incomingVersion) < String(existingVersion);
   }
 }

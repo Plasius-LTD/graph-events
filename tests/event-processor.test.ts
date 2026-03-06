@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { CacheEnvelope, CacheStore } from "@plasius/graph-contracts";
 import { GraphEventProcessor, InMemoryProcessedEventStore } from "../src/event-processor.js";
@@ -132,6 +132,70 @@ describe("GraphEventProcessor", () => {
     });
 
     expect(result.skipped).toBe(true);
+    expect(result.reason).toBe("already_processed");
+  });
+
+  it("skips out-of-order update events to avoid cache corruption", async () => {
+    const cache = new FakeCacheStore();
+    await cache.set("entity:8", {
+      key: "entity:8",
+      value: { value: 10 },
+      fetchedAtEpochMs: 10,
+      policy: { softTtlSeconds: 10, hardTtlSeconds: 30 },
+      version: 10,
+      schemaVersion: "1",
+      source: "test",
+      tags: ["entity"],
+    });
+
+    const processor = new GraphEventProcessor({ cacheStore: cache });
+    const result = await processor.process({
+      id: "evt_8",
+      type: "graph.entity.updated",
+      occurredAtEpochMs: 8,
+      aggregateKey: "agg:8",
+      entityKey: "entity:8",
+      version: 9,
+      payload: { data: { value: 9 } },
+      tags: ["entity"],
+      schemaVersion: "1",
+      source: "event-source",
+    });
+
+    expect(result).toEqual({
+      skipped: true,
+      action: "none",
+      reason: "out_of_order",
+    });
+    expect((await cache.get<{ value: number }>("entity:8"))?.value).toEqual({ value: 10 });
+  });
+
+  it("skips unsupported schema versions", async () => {
+    const cache = new FakeCacheStore();
+    const processor = new GraphEventProcessor({
+      cacheStore: cache,
+      supportedSchemaVersions: ["1"],
+    });
+
+    const result = await processor.process({
+      id: "evt_schema",
+      type: "graph.entity.updated",
+      occurredAtEpochMs: 9,
+      aggregateKey: "agg:9",
+      entityKey: "entity:9",
+      version: 1,
+      payload: { data: { value: 1 } },
+      tags: ["entity"],
+      schemaVersion: "2",
+      source: "event-source",
+    });
+
+    expect(result).toEqual({
+      skipped: true,
+      action: "none",
+      reason: "unsupported_schema",
+    });
+    expect(await cache.get("entity:9")).toBeNull();
   });
 
   it("invalidates aggregate and entity keys for malformed update payloads", async () => {
@@ -214,5 +278,90 @@ describe("GraphEventProcessor", () => {
       { skipped: false, action: "hydrated" },
       { skipped: false, action: "invalidated" },
     ]);
+  });
+
+  it("emits lag and processed telemetry for handled events", async () => {
+    const telemetry = {
+      metric: vi.fn(),
+      error: vi.fn(),
+      trace: vi.fn(),
+    };
+    const cache = new FakeCacheStore();
+    const processor = new GraphEventProcessor({
+      cacheStore: cache,
+      telemetry,
+      now: () => 10_000,
+    });
+
+    await processor.process({
+      id: "evt_metric",
+      type: "graph.entity.updated",
+      occurredAtEpochMs: 9_900,
+      aggregateKey: "agg:10",
+      entityKey: "entity:10",
+      version: 10,
+      payload: { data: { value: 1 } },
+      tags: ["entity"],
+      schemaVersion: "1",
+      source: "event-source",
+    });
+
+    expect(telemetry.metric).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "graph.events.lag_ms",
+        value: 100,
+      }),
+    );
+    expect(telemetry.metric).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "graph.events.processed",
+        tags: expect.objectContaining({ action: "hydrated", reason: "none" }),
+      }),
+    );
+    expect(telemetry.error).not.toHaveBeenCalled();
+  });
+
+  it("emits failure telemetry when cache writes fail", async () => {
+    class FailingCacheStore extends FakeCacheStore {
+      override async compareAndSet<T>(): Promise<boolean> {
+        throw new Error("redis down");
+      }
+    }
+
+    const telemetry = {
+      metric: vi.fn(),
+      error: vi.fn(),
+      trace: vi.fn(),
+    };
+    const processor = new GraphEventProcessor({
+      cacheStore: new FailingCacheStore(),
+      telemetry,
+    });
+
+    await expect(
+      processor.process({
+        id: "evt_fail",
+        type: "graph.entity.updated",
+        occurredAtEpochMs: 10,
+        aggregateKey: "agg:11",
+        entityKey: "entity:11",
+        version: 1,
+        payload: { data: { value: 1 } },
+        tags: ["entity"],
+        schemaVersion: "1",
+        source: "event-source",
+      }),
+    ).rejects.toThrow("redis down");
+
+    expect(telemetry.metric).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "graph.events.failure",
+      }),
+    );
+    expect(telemetry.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: "EVENT_PROCESSING_FAILED",
+      }),
+    );
   });
 });
