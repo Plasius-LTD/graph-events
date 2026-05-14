@@ -41,6 +41,10 @@ import {
   type GraphEventProcessorOptions,
   type GraphEventProcessResult,
   type ProcessedEventStore,
+  type ProjectedEvent,
+  type GraphProjectorCheckpoint,
+  ReplayableProjector,
+  InMemoryProjectorCheckpointStore,
 } from "@plasius/graph-events";
 ```
 
@@ -67,6 +71,28 @@ await processor.process({
 });
 ```
 
+### Replayable checkpointing for downstream projections
+
+```ts
+import { InMemoryProjectorCheckpointStore, ReplayableProjector } from "@plasius/graph-events";
+
+const checkpointStore = new InMemoryProjectorCheckpointStore();
+const projector = new ReplayableProjector(
+  async (event, _checkpoint) => {
+    // apply event into a projection or materialized view
+  },
+  {
+    streamId: "world-events:stream",
+    checkpointStore,
+  },
+);
+
+await projector.processBatch([
+  { streamId: "world-events:stream", eventId: "evt-1", version: 1 },
+  { streamId: "world-events:stream", eventId: "evt-2", version: 2 },
+]);
+```
+
 ---
 
 ## Development
@@ -91,6 +117,10 @@ npm run build
   - `graph.events.lag_ms`
   - `graph.events.processed`
   - `graph.events.failure`
+- Replayable projection checkpoints:
+  - resume safely from checkpointed stream state
+  - skip stale versions and duplicate event ids at checkpoint level
+  - enforce stream correctness per batch input
 
 Missed events rely on cache TTL fallback strategy (cross-package ADR 0021).
 
