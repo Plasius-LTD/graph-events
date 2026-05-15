@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   InMemoryProjectorCheckpointStore,
   ReplayableProjector,
-} from "../src/replayable-projector.js";
+} from "../src/index.js";
 
 type TestEvent = {
   readonly streamId: string;
