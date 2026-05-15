@@ -11,6 +11,12 @@ type TestEvent = {
   readonly version: number;
 };
 
+type StringVersionEvent = {
+  readonly streamId: string;
+  readonly eventId: string;
+  readonly version: string;
+};
+
 describe("ReplayableProjector", () => {
   it("skips already applied versions and replays only new events", async () => {
     const checkpointStore = new InMemoryProjectorCheckpointStore();
@@ -99,6 +105,35 @@ describe("ReplayableProjector", () => {
       lastEventVersion: 2,
       processedEventCount: 2,
     });
+  });
+
+  it("compares string versions when replaying checkpoints", async () => {
+    const checkpointStore = new InMemoryProjectorCheckpointStore();
+    await checkpointStore.setCheckpoint({
+      streamId: "string-stream",
+      lastEventId: "evt-a",
+      lastEventVersion: "2026-05-01",
+      processedEventCount: 1,
+      lastUpdatedEpochMs: 10,
+    });
+
+    const seen: string[] = [];
+    const projector = new ReplayableProjector<StringVersionEvent>(
+      async (event) => {
+        seen.push(event.eventId);
+      },
+      {
+        streamId: "string-stream",
+        checkpointStore,
+      },
+    );
+
+    await projector.processBatch([
+      { streamId: "string-stream", eventId: "evt-a", version: "2026-05-01" },
+      { streamId: "string-stream", eventId: "evt-b", version: "2026-05-02" },
+    ]);
+
+    expect(seen).toEqual(["evt-b"]);
   });
 
   it("rejects stream mismatch during batch processing", async () => {
