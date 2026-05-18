@@ -9,10 +9,10 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 - **Added**
-  - (placeholder)
+  - Added replayable projection checkpoint primitives (`ReplayableProjector`, `InMemoryProjectorCheckpointStore`) for stream-safe, idempotent downstream projection batch processing.
 
 - **Changed**
-  - (placeholder)
+  - `GraphEventProcessor` remains unchanged; public package API now includes reusable checkpointing utilities in addition.
 
 - **Fixed**
   - (placeholder)
@@ -23,17 +23,21 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [0.1.6] - 2026-05-13
 
 - **Added**
-  - (placeholder)
+  - Version ordering guard to skip out-of-order hydration events.
+  - Schema compatibility guard via `supportedSchemaVersions`.
+  - Event telemetry for lag, processed outcomes, and failures.
+  - Contract compatibility test suite for event envelope/schema handling.
+  - ADR-0003 documenting event ordering and telemetry baseline.
 
 - **Changed**
-  - Refreshed dependencies to the latest stable published versions.
-  - (placeholder)
+  - `GraphEventProcessResult` now includes optional `reason` for skipped events.
+  - README now documents processing guarantees and TTL fallback linkage.
 
 - **Fixed**
-  - (placeholder)
+  - N/A
 
 - **Security**
-  - (placeholder)
+  - N/A
 
 ## [0.1.5] - 2026-05-13
 
@@ -103,7 +107,6 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 - Initial package scaffolding.
 - Initial source implementation and baseline tests.
 - CI/CD workflow baseline for GitHub Actions and npm publish path.
-
 
 [0.1.1]: https://github.com/Plasius-LTD/graph-events/releases/tag/v0.1.1
 [0.1.2]: https://github.com/Plasius-LTD/graph-events/releases/tag/v0.1.2
