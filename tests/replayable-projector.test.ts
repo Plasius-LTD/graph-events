@@ -8,7 +8,7 @@ import {
 type TestEvent = {
   readonly streamId: string;
   readonly eventId: string;
-  readonly version: number;
+  readonly version: number | string;
 };
 
 type StringVersionEvent = {
