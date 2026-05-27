@@ -136,6 +136,72 @@ describe("ReplayableProjector", () => {
     expect(seen).toEqual(["evt-b"]);
   });
 
+  it("compares decimal string versions numerically", async () => {
+    const checkpointStore = new InMemoryProjectorCheckpointStore();
+    await checkpointStore.setCheckpoint({
+      streamId: "numeric-string-stream",
+      lastEventId: "evt-2",
+      lastEventVersion: "2",
+      processedEventCount: 1,
+      lastUpdatedEpochMs: 10,
+    });
+
+    const seen: string[] = [];
+    const projector = new ReplayableProjector<StringVersionEvent>(
+      async (event) => {
+        seen.push(event.eventId);
+      },
+      {
+        streamId: "numeric-string-stream",
+        checkpointStore,
+      },
+    );
+
+    const result = await projector.processBatch([
+      { streamId: "numeric-string-stream", eventId: "evt-10", version: "10" },
+    ]);
+
+    expect(seen).toEqual(["evt-10"]);
+    expect(result.processed).toBe(1);
+    expect(result.skipped).toBe(0);
+    await expect(checkpointStore.getCheckpoint("numeric-string-stream")).resolves.toMatchObject({
+      lastEventId: "evt-10",
+      lastEventVersion: "10",
+      processedEventCount: 2,
+    });
+  });
+
+  it("skips older or equivalent decimal string versions", async () => {
+    const checkpointStore = new InMemoryProjectorCheckpointStore();
+    await checkpointStore.setCheckpoint({
+      streamId: "numeric-skip-stream",
+      lastEventId: "evt-10",
+      lastEventVersion: "10",
+      processedEventCount: 3,
+      lastUpdatedEpochMs: 10,
+    });
+
+    const seen: string[] = [];
+    const projector = new ReplayableProjector<StringVersionEvent>(
+      async (event) => {
+        seen.push(event.eventId);
+      },
+      {
+        streamId: "numeric-skip-stream",
+        checkpointStore,
+      },
+    );
+
+    const result = await projector.processBatch([
+      { streamId: "numeric-skip-stream", eventId: "evt-2", version: "2" },
+      { streamId: "numeric-skip-stream", eventId: "evt-10b", version: "10" },
+    ]);
+
+    expect(seen).toEqual([]);
+    expect(result.processed).toBe(0);
+    expect(result.skipped).toBe(2);
+  });
+
   it("rejects stream mismatch during batch processing", async () => {
     const checkpointStore = new InMemoryProjectorCheckpointStore();
     const projector = new ReplayableProjector(

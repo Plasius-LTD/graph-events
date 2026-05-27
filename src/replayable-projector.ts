@@ -49,22 +49,20 @@ export interface ReplayableProjectorProjector<TEvent extends ProjectedEvent> {
 }
 
 function compareVersions(a: Version, b: Version): number {
-  const normalizedA = typeof a === "number" ? a : Number(String(a).trim());
-  const normalizedB = typeof b === "number" ? b : Number(String(b).trim());
-  const normalizedAIsNumber =
-    typeof normalizedA === "number" &&
-    Number.isFinite(normalizedA) &&
-    String(normalizedA) === String(normalizedA).trim().replace(/^0+(?=\d)/, "");
-  const normalizedBIsNumber =
-    typeof normalizedB === "number" &&
-    Number.isFinite(normalizedB) &&
-    String(normalizedB) === String(normalizedB).trim().replace(/^0+(?=\d)/, "");
+  const normalizedA = normalizeNumericVersion(a);
+  const normalizedB = normalizeNumericVersion(b);
 
-  if (normalizedAIsNumber && normalizedBIsNumber) {
+  if (normalizedA !== null && normalizedB !== null) {
     return normalizedA < normalizedB ? -1 : normalizedA > normalizedB ? 1 : 0;
   }
 
   return String(a).localeCompare(String(b), undefined, { numeric: true });
+}
+
+function normalizeNumericVersion(version: Version): number | null {
+  const normalized = typeof version === "number" ? version : Number(String(version).trim());
+
+  return Number.isFinite(normalized) ? normalized : null;
 }
 
 export class ReplayableProjector<TEvent extends ProjectedEvent> {
