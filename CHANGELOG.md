@@ -20,6 +20,20 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 - **Security**
   - (placeholder)
 
+## [0.1.10] - 2026-06-22
+
+- **Added**
+  - (placeholder)
+
+- **Changed**
+  - (placeholder)
+
+- **Fixed**
+  - (placeholder)
+
+- **Security**
+  - (placeholder)
+
 ## [0.1.9] - 2026-06-22
 
 - **Added**
@@ -129,3 +143,4 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 [0.1.5]: https://github.com/Plasius-LTD/graph-events/releases/tag/v0.1.5
 [0.1.6]: https://github.com/Plasius-LTD/graph-events/releases/tag/v0.1.6
 [0.1.9]: https://github.com/Plasius-LTD/graph-events/releases/tag/v0.1.9
+[0.1.10]: https://github.com/Plasius-LTD/graph-events/releases/tag/v0.1.10
