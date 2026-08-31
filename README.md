@@ -8,9 +8,6 @@
 [![Security Policy](https://img.shields.io/badge/security%20policy-yes-orange.svg)](./SECURITY.md)
 [![Changelog](https://img.shields.io/badge/changelog-md-blue.svg)](./CHANGELOG.md)
 
-[![CI](https://github.com/Plasius-LTD/graph-events/actions/workflows/ci.yml/badge.svg)](https://github.com/Plasius-LTD/graph-events/actions/workflows/ci.yml)
-[![CD](https://github.com/Plasius-LTD/graph-events/actions/workflows/cd.yml/badge.svg)](https://github.com/Plasius-LTD/graph-events/actions/workflows/cd.yml)
-
 Event-driven cache invalidation and hydration pipeline for graph data.
 
 Apache-2.0. ESM + CJS builds. TypeScript types included.
