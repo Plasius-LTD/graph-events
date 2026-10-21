@@ -5,3 +5,4 @@
 - [ADR-0003: Event Ordering Guard and Telemetry Baseline](./adr-0003-event-ordering-and-telemetry.md)
 - [ADR-0004: Reusable Replayable Checkpoint Primitives for Projection Batches](./adr-0004-replayable-checkpoint-primitives-for-projection-batches.md)
 - [ADR-0005: Hosted OIDC Package Publication](./adr-0005-hosted-oidc-package-publication.md)
+- [ADR-0006: Quarantined Trusted-Push CI](./adr-0006-quarantined-push-ci.md)
